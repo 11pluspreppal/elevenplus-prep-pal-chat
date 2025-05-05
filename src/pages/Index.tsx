@@ -1,16 +1,21 @@
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { GraduationCap } from "lucide-react";
 import SubjectSelector from "@/components/SubjectSelector";
 import { examSubjects } from "@/utils/examTopics";
 import { useNavigate } from "react-router-dom";
+import UserMenu from "@/components/UserMenu";
 
 const Index = () => {
   const navigate = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   useEffect(() => {
     document.title = "11+ Exam Prep Pal";
+    // Check if user is logged in
+    const loginStatus = localStorage.getItem("isLoggedIn") === "true";
+    setIsLoggedIn(loginStatus);
   }, []);
 
   const handleSelectSubject = (subjectId: string) => {
@@ -32,9 +37,13 @@ const Index = () => {
           <Button variant="secondary" size="sm" onClick={() => navigate("/resources")}>
             Resources
           </Button>
-          <Button variant="default" size="sm" onClick={() => navigate("/login")}>
-            Sign In
-          </Button>
+          {isLoggedIn ? (
+            <UserMenu />
+          ) : (
+            <Button variant="default" size="sm" onClick={() => navigate("/login")}>
+              Sign In
+            </Button>
+          )}
         </div>
       </header>
 
