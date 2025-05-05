@@ -33,7 +33,12 @@ const PracticeSession = () => {
     const generatedQuestions: Question[] = [];
     
     for (let i = 0; i < questionsToGenerate; i++) {
-      const question = generateQuestion(subjectId, topicId, difficulty !== "mixed" ? difficulty : undefined);
+      // Type check the difficulty parameter before passing it to generateQuestion
+      const typedDifficulty = difficulty === "easy" || difficulty === "medium" || difficulty === "hard" 
+        ? difficulty 
+        : undefined;
+        
+      const question = generateQuestion(subjectId, topicId, typedDifficulty);
       if (question) {
         generatedQuestions.push(question);
       }
