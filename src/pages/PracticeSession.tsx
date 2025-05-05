@@ -2,11 +2,19 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, Clock, Save, ChevronLeft, ChevronRight } from "lucide-react";
+import { GraduationCap, Clock, Save, ChevronLeft, ChevronRight, CheckCircle, XCircle, RotateCcw, BookOpen } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getSubjectById, getTopicById } from "@/utils/examTopics";
 import { generateQuestion, Question } from "@/utils/questionGenerator";
 import { toast } from "sonner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+// Create a type for tracking answer results
+type AnswerResult = {
+  questionId: string;
+  userAnswer: string;
+  isCorrect: boolean;
+};
 
 const PracticeSession = () => {
   const navigate = useNavigate();
@@ -24,6 +32,9 @@ const PracticeSession = () => {
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [timeLeft, setTimeLeft] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [answerResults, setAnswerResults] = useState<AnswerResult[]>([]);
+  const [reviewMode, setReviewMode] = useState(false);
   
   // Generate questions on component mount
   useEffect(() => {
@@ -60,7 +71,7 @@ const PracticeSession = () => {
         if (prev <= 1) {
           clearInterval(timer);
           toast.warning("Time's up!");
-          setIsFinished(true);
+          finishSession();
           return 0;
         }
         return prev - 1;
@@ -88,8 +99,7 @@ const PracticeSession = () => {
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
-      setIsFinished(true);
-      toast.success("Practice session completed!");
+      finishSession();
     }
   };
   
@@ -119,6 +129,48 @@ const PracticeSession = () => {
     }
   };
   
+  const finishSession = () => {
+    setIsFinished(true);
+    
+    // Calculate results
+    const results: AnswerResult[] = questions.map((question, index) => {
+      const userAnswer = selectedAnswers[index] || "";
+      const isCorrect = userAnswer === question.answer;
+      
+      return {
+        questionId: question.id,
+        userAnswer,
+        isCorrect
+      };
+    });
+    
+    setAnswerResults(results);
+    setShowResults(true);
+  };
+  
+  const getScore = () => {
+    const answeredQuestions = Object.keys(selectedAnswers).length;
+    const correctAnswers = answerResults.filter(result => result.isCorrect).length;
+    return {
+      total: questions.length,
+      answered: answeredQuestions,
+      correct: correctAnswers,
+      percentage: questions.length > 0 
+        ? Math.round((correctAnswers / questions.length) * 100) 
+        : 0
+    };
+  };
+  
+  const handleReviewQuestions = () => {
+    setShowResults(false);
+    setReviewMode(true);
+    setCurrentIndex(0);
+  };
+  
+  const handleRestartPractice = () => {
+    navigate(`/practice/${subjectId}`);
+  };
+  
   const subject = subjectId ? getSubjectById(subjectId) : undefined;
   const topic = topicId && subjectId ? getTopicById(subjectId, topicId) : undefined;
   
@@ -131,6 +183,7 @@ const PracticeSession = () => {
   }
   
   const currentQuestion = questions[currentIndex];
+  const score = getScore();
   
   return (
     <div className="container mx-auto px-4 py-6">
@@ -213,6 +266,142 @@ const PracticeSession = () => {
                   {currentIndex === questions.length - 1 ? "Finish" : "Next"}
                   {currentIndex < questions.length - 1 && <ChevronRight className="h-4 w-4 ml-1" />}
                 </Button>
+              </div>
+            </>
+          ) : showResults ? (
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-2xl font-bold mb-6 text-center">Practice Session Results</h2>
+                
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-muted p-4 rounded-lg text-center">
+                    <p className="text-sm text-muted-foreground mb-1">Total Questions</p>
+                    <p className="text-2xl font-bold">{score.total}</p>
+                  </div>
+                  <div className="bg-muted p-4 rounded-lg text-center">
+                    <p className="text-sm text-muted-foreground mb-1">Score</p>
+                    <p className="text-2xl font-bold">{score.correct} / {score.total}</p>
+                  </div>
+                  <div className="bg-muted p-4 rounded-lg text-center">
+                    <p className="text-sm text-muted-foreground mb-1">Answered</p>
+                    <p className="text-2xl font-bold">{score.answered} / {score.total}</p>
+                  </div>
+                  <div className="bg-muted p-4 rounded-lg text-center">
+                    <p className="text-sm text-muted-foreground mb-1">Percentage</p>
+                    <p className="text-2xl font-bold">{score.percentage}%</p>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col gap-4 mt-8">
+                  <Button onClick={handleReviewQuestions} className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    Review Questions
+                  </Button>
+                  <Button onClick={handleRestartPractice} variant="outline" className="flex items-center gap-2">
+                    <RotateCcw className="h-4 w-4" />
+                    Practice Again
+                  </Button>
+                  <Button variant="outline" onClick={() => navigate("/")} className="flex items-center gap-2">
+                    Return to Home
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : reviewMode ? (
+            <>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">
+                  Review: Question {currentIndex + 1} of {questions.length}
+                </h2>
+                <div className="flex items-center gap-2">
+                  {answerResults[currentIndex]?.isCorrect ? (
+                    <span className="flex items-center text-green-500">
+                      <CheckCircle className="h-4 w-4 mr-1" /> Correct
+                    </span>
+                  ) : (
+                    <span className="flex items-center text-red-500">
+                      <XCircle className="h-4 w-4 mr-1" /> Incorrect
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              <Card className="mb-6">
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="px-2 py-1 bg-primary/10 text-primary text-sm rounded-md">
+                      {currentQuestion.difficulty}
+                    </span>
+                  </div>
+                  
+                  <h3 className="text-lg font-medium mb-4">{currentQuestion.text}</h3>
+                  
+                  {currentQuestion.options && (
+                    <div className="space-y-3 mt-4">
+                      {currentQuestion.options.map((option, index) => {
+                        const isUserChoice = selectedAnswers[currentIndex] === option;
+                        const isCorrectAnswer = currentQuestion.answer === option;
+                        
+                        let optionClass = "p-3 border rounded-md";
+                        
+                        if (isCorrectAnswer) {
+                          optionClass += " bg-green-100 border-green-500";
+                        } else if (isUserChoice) {
+                          optionClass += " bg-red-100 border-red-500";
+                        }
+                        
+                        return (
+                          <div key={index} className={optionClass}>
+                            <div className="flex items-center">
+                              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center mr-3 shrink-0">
+                                {String.fromCharCode(65 + index)}
+                              </div>
+                              <div className="flex-1">{option}</div>
+                              {isCorrectAnswer && (
+                                <CheckCircle className="h-5 w-5 text-green-500 ml-2" />
+                              )}
+                              {isUserChoice && !isCorrectAnswer && (
+                                <XCircle className="h-5 w-5 text-red-500 ml-2" />
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  {currentQuestion.explanation && (
+                    <div className="mt-6 p-4 bg-muted/50 rounded-md">
+                      <h4 className="font-semibold mb-2">Explanation:</h4>
+                      <p className="text-sm">{currentQuestion.explanation}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              
+              <div className="flex justify-between">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+                  disabled={currentIndex === 0}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                {currentIndex < questions.length - 1 ? (
+                  <Button 
+                    onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={() => setShowResults(true)}
+                  >
+                    Back to Results
+                  </Button>
+                )}
               </div>
             </>
           ) : (
